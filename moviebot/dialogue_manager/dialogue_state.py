@@ -26,12 +26,7 @@ class DialogueState:
         """
         self.isBot = isBot
         self.ontology = ontology
-        # the recommended movie and all it's attributes from the database
-        self.item_in_focus = None
-        # user requestable attributes of item_in_focus and system answers
-        # self.requestable_slots_filled = {}
-        self.agent_requestable = deepcopy(self.ontology.agent_requestable)
-        self.user_requestable = deepcopy(self.ontology.user_requestable)
+
         self.frame_CIN = dict.fromkeys(slots)  # user requirements before
         # making a recommendation. CIN stands for current information needs
         self.frame_PIN = (
@@ -42,6 +37,7 @@ class DialogueState:
             None  # the current agent dact (singular, must be updated carefully)
         )
         self.last_user_dacts = None  # the current user act
+        self.initialize()
 
     def _agent_offer_state(self) -> str:
         """Returns string representation of the agent's offer state."""

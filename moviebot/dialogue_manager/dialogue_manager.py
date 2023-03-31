@@ -102,7 +102,7 @@ class DialogueManager:
         # next action based on updated state
         dialogue_state = self.dialogue_state_tracker.dialogue_state
         agent_dacts = self.dialogue_policy.next_action(
-            dialogue_state, restart=restart
+            dialogue_state, dialogue_context=self.get_context(), restart=restart
         )
         self.dialogue_state_tracker.update_state_agent(agent_dacts)
 

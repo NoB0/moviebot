@@ -2,6 +2,7 @@
 agent based on the previous conversation and current dialogue."""
 
 
+import ast
 import random
 from copy import deepcopy
 from typing import Any, Dict, List
@@ -30,7 +31,7 @@ class DialoguePolicy:
         self.isBot = isBot
         self.new_user = new_user
 
-    def next_action(  # noqa: C901
+    def next_action(
         self,
         dialogue_state: DialogueState,
         dialogue_context: DialogueContext = None,
@@ -49,35 +50,10 @@ class DialoguePolicy:
         """
         agent_dacts = []
         slots = deepcopy(dialogue_state.agent_requestable)
-        if not dialogue_state.last_user_dacts and not restart:
-            agent_dacts.append(
-                DialogueAct(
-                    AgentIntents.WELCOME,
-                    [
-                        ItemConstraint("new_user", Operator.EQ, self.new_user),
-                        ItemConstraint("is_bot", Operator.EQ, self.isBot),
-                    ],
-                )
-            )
-            return agent_dacts
 
-        if not dialogue_state.last_agent_dacts and not restart:
-            if not dialogue_state.last_agent_dacts:
-                agent_dacts.append(
-                    DialogueAct(
-                        AgentIntents.WELCOME,
-                        [
-                            ItemConstraint(
-                                "new_user", Operator.EQ, self.new_user
-                            ),
-                            ItemConstraint("is_bot", Operator.EQ, self.isBot),
-                        ],
-                    )
-                )
-
-        if (not dialogue_state.last_user_dacts and restart) or (
-            dialogue_state.last_user_dacts
-            and UserIntents.RESTART
+        # Restart conversation
+        if restart or (
+            UserIntents.RESTART
             in [dact.intent for dact in dialogue_state.last_user_dacts]
         ):
             agent_dacts.append(DialogueAct(AgentIntents.RESTART, []))
@@ -89,182 +65,254 @@ class DialoguePolicy:
             )
             return agent_dacts
 
-        for user_dact in dialogue_state.last_user_dacts:
-            agent_dact = DialogueAct(AgentIntents.UNK, [])
-            # generating intent = "bye"
-            if user_dact.intent == UserIntents.BYE:
-                agent_dact.intent = AgentIntents.BYE
-                agent_dacts.append(deepcopy(agent_dact))
-                return agent_dacts
+        # Start conversation
+        if not restart and (
+            not dialogue_state.last_user_dacts
+            or not dialogue_state.last_agent_dacts
+            or all(
+                [
+                    UserIntents.HI == dact.intent
+                    for dact in dialogue_state.last_user_dacts
+                ]
+            )
+        ):
+            agent_dacts.append(
+                DialogueAct(
+                    AgentIntents.WELCOME,
+                    [
+                        ItemConstraint("new_user", Operator.EQ, self.new_user),
+                        ItemConstraint("is_bot", Operator.EQ, self.isBot),
+                    ],
+                )
+            )
+            return agent_dacts
 
-            # generating intent = "elicit"
-            if (
-                user_dact.intent == UserIntents.ACKNOWLEDGE
-                or user_dact.intent == UserIntents.UNK
-            ):
-                if AgentIntents.WELCOME in [
-                    dact.intent for dact in dialogue_state.last_agent_dacts
-                ]:
-                    agent_dact.intent = AgentIntents.ELICIT
-                    agent_dact.params.append(
-                        ItemConstraint(slots[0], Operator.EQ, "")
-                    )
-                    agent_dacts.append(deepcopy(agent_dact))
+        if any(
+            [
+                user_da.intent == UserIntents.ACKNOWLEDGE
+                or user_da.intent == UserIntents.UNK
+                for user_da in dialogue_state.last_user_dacts
+            ]
+        ) and any(
+            [
+                AgentIntents.WELCOME == agent_da.intent
+                for agent_da in dialogue_state.last_agent_dacts
+            ]
+        ):
+            return [
+                DialogueAct(
+                    AgentIntents.ELICIT,
+                    [ItemConstraint(slots[0], Operator.EQ, "")],
+                )
+            ]
+
+        # Define possible actions based on dialogue state
+        possible_actions_per_state = {
+            "agent_req_filled": self.elicit,
+            # "agent_can_lookup": self.recommend,
+            "agent_made_partial_offer": self.choose_elicit_or_recommend,
+            "agent_should_make_offer": self.recommend,
+            "agent_made_offer": self.inform_or_recommend,
+            "agent_offer_no_results": self.no_results,
+            "at_terminal_state": self.finish,
+        }
+
+        for state_name in ast.literal_eval(dialogue_state._agent_offer_state()):
+            if state_name in possible_actions_per_state:
+                agent_dacts = possible_actions_per_state[state_name](
+                    dialogue_state, slots
+                )
+                if agent_dacts:
                     return agent_dacts
 
-            # deciding between intent "elicit" or "recommend"
-            if (
-                dialogue_state.agent_made_partial_offer
-            ):  # agent will inform about number of
-                CIN_slots = [
-                    key
-                    for key in dialogue_state.frame_CIN.keys()
-                    if not dialogue_state.frame_CIN[key]
-                    and key != Slots.TITLE.value
-                ]
-                if (
-                    len(CIN_slots) >= dialogue_state.slot_left_unasked
-                ):  # if there is a scope of
-                    # further questioning
-                    # results and will ask next question
-                    agent_dact.intent = AgentIntents.COUNT_RESULTS
-                    agent_dact.params.append(
+        return [DialogueAct(AgentIntents.CANT_HELP)]
+
+    def finish(
+        self, dialogue_state: DialogueState, slots: List[str]
+    ) -> List[DialogueAct]:
+        """Action to finish the conversation.
+
+        Args:
+            dialogue_state: Dialogue state.
+            slots: Slots.
+
+        Returns:
+            List of dialogue acts to finish the conversation.
+        """
+        return [DialogueAct(intent=AgentIntents.BYE)]
+
+    def no_results(
+        self, dialogue_state: DialogueState, slots: List[str]
+    ) -> List[DialogueAct]:
+        """Action to communication that no results were found.
+
+        Args:
+            dialogue_state: Dialogue state.
+            slots: Slots.
+
+        Returns:
+            List of dialogue acts indicating that no results were found.
+        """
+        return [DialogueAct(intent=AgentIntents.NO_RESULTS)]
+
+    def elicit(
+        self, dialogue_state: DialogueState, slots: List[str]
+    ) -> List[DialogueAct]:
+        """Action to elicit information need.
+
+        Args:
+            dialogue_state: Dialogue state.
+            slots: Slots.
+
+        Returns:
+            List of dialogue acts to elicit information need.
+        """
+        agent_dacts: List[DialogueAct] = []
+
+        CIN_slots = [
+            key
+            for key in dialogue_state.frame_CIN.keys()
+            if not dialogue_state.frame_CIN[key] and key != Slots.TITLE.value
+        ]
+
+        if len(CIN_slots) >= dialogue_state.slot_left_unasked:
+            agent_dacts.append(
+                DialogueAct(
+                    AgentIntents.COUNT_RESULTS,
+                    [
                         ItemConstraint(
                             "count",
                             Operator.EQ,
                             len(dialogue_state.database_result),
                         )
-                    )
-                    agent_dacts.append(deepcopy(agent_dact))
-                    # adding another dialogue act of ELICIT
-                    if dialogue_state.agent_req_filled:
-                        random.shuffle(CIN_slots)
-                        agent_dact = DialogueAct(AgentIntents.ELICIT, [])
-                        agent_dact.params.append(
-                            ItemConstraint(CIN_slots[0], Operator.EQ, "")
-                        )
-                        agent_dacts.append(deepcopy(agent_dact))
-                    else:
-                        agent_dact = DialogueAct(AgentIntents.ELICIT, [])
-                        random.shuffle(slots)
-                        for slot in slots:
-                            if not dialogue_state.frame_CIN[slot]:
-                                agent_dact.params.append(
-                                    ItemConstraint(slot, Operator.EQ, "")
-                                )
-                                break
-                        agent_dacts.append(deepcopy(agent_dact))
-
-                else:
-                    agent_dact = DialogueAct(AgentIntents.RECOMMEND, [])
-                    item_in_focus = dialogue_state.database_result[0]
-                    agent_dact.params.append(
-                        ItemConstraint(
-                            Slots.TITLE.value,
-                            Operator.EQ,
-                            item_in_focus[Slots.TITLE.value],
-                        )
-                    )
-            elif dialogue_state.agent_should_make_offer:
-                agent_dact.intent = AgentIntents.RECOMMEND
-                agent_dact.params.append(
-                    ItemConstraint(
-                        Slots.TITLE.value,
-                        Operator.EQ,
-                        dialogue_state.item_in_focus[Slots.TITLE.value],
+                    ],
+                )
+            )
+            # adding another dialogue act of ELICIT
+            if dialogue_state.agent_req_filled:
+                random.shuffle(CIN_slots)
+                agent_dacts.append(
+                    DialogueAct(
+                        AgentIntents.ELICIT,
+                        [ItemConstraint(CIN_slots[0], Operator.EQ, "")],
                     )
                 )
+            else:
+                agent_dact = DialogueAct(AgentIntents.ELICIT, [])
+                random.shuffle(slots)
+                for slot in slots:
+                    if not dialogue_state.frame_CIN[slot]:
+                        agent_dact.params.append(
+                            ItemConstraint(slot, Operator.EQ, "")
+                        )
+                        break
                 agent_dacts.append(deepcopy(agent_dact))
-            elif dialogue_state.agent_offer_no_results:
-                agent_dact.intent = AgentIntents.NO_RESULTS
-                agent_dacts.append(deepcopy(agent_dact))
-            elif dialogue_state.agent_made_offer:
-                if user_dact.intent == UserIntents.INQUIRE:
-                    agent_dact.intent = AgentIntents.INFORM
-                    for param in user_dact.params:
-                        if param.slot != Slots.MORE_INFO.value:
-                            agent_dact.params.append(
-                                ItemConstraint(
-                                    param.slot,
-                                    Operator.EQ,
-                                    dialogue_state.item_in_focus[param.slot],
-                                )
-                            )
-                        else:
-                            agent_dact.params.append(
-                                ItemConstraint(
-                                    param.slot,
-                                    Operator.EQ,
-                                    dialogue_state.item_in_focus[
-                                        Slots.TITLE.value
-                                    ],
-                                )
-                            )
-                    if len(agent_dact.params) == 0:
+
+        return agent_dacts
+
+    def recommend(
+        self, dialogue_state: DialogueState, slots: List[str]
+    ) -> List[DialogueAct]:
+        """Action to make a recommendation.
+
+        Args:
+            dialogue_state: Dialogue state.
+            slots: Slots.
+
+        Returns:
+            List of dialogue acts to make a recommendation.
+        """
+        if dialogue_state.agent_should_make_offer:
+            item_in_focus = dialogue_state.item_in_focus
+        else:
+            item_in_focus = dialogue_state.database_result[0]
+
+        agent_dact = DialogueAct(
+            AgentIntents.RECOMMEND,
+            [
+                ItemConstraint(
+                    Slots.TITLE.value,
+                    Operator.EQ,
+                    item_in_focus[Slots.TITLE.value],
+                )
+            ],
+        )
+
+        return [agent_dact]
+
+    def inform_or_recommend(
+        self, dialogue_state: DialogueState, slots: List[str]
+    ) -> List[DialogueAct]:
+        """Action to communication that no results were found.
+
+        Args:
+            dialogue_state: Dialogue state.
+            slots: Slots.
+
+        Returns:
+            List of dialogue acts indicating that no results were found.
+        """
+        agent_dacts: List[DialogueAct] = []
+        for user_dact in dialogue_state.last_user_dacts:
+            if user_dact.intent == UserIntents.INQUIRE:
+                agent_dact = DialogueAct(AgentIntents.INFORM)
+                for param in user_dact.params:
+                    if param.slot != Slots.MORE_INFO.value:
                         agent_dact.params.append(
                             ItemConstraint(
-                                "deny",
+                                param.slot,
+                                Operator.EQ,
+                                dialogue_state.item_in_focus[param.slot],
+                            )
+                        )
+                    else:
+                        agent_dact.params.append(
+                            ItemConstraint(
+                                param.slot,
                                 Operator.EQ,
                                 dialogue_state.item_in_focus[Slots.TITLE.value],
                             )
                         )
-                    agent_dacts.append(deepcopy(agent_dact))
-                # elif (
-                #     user_dact.intent == UserIntents.REVEAL
-                #     and Slots.TITLE.value
-                #     in [param.slot for param in user_dact.params]
-                # ):
-                #     agent_dact.intent = AgentIntents.INFORM
-                #     agent_dact.params.append(
-                #         ItemConstraint(
-                #             Slots.MORE_INFO.value,
-                #             Operator.EQ,
-                #             dialogue_state.item_in_focus[Slots.TITLE.value],
-                #         )
-                #     )
-                #     agent_dacts.append(deepcopy(agent_dact))
-                elif user_dact.intent == UserIntents.ACCEPT:
-                    agent_dact.intent = AgentIntents.CONTINUE_RECOMMENDATION
+                if len(agent_dact.params) == 0:
                     agent_dact.params.append(
                         ItemConstraint(
-                            Slots.TITLE.value,
+                            "deny",
                             Operator.EQ,
                             dialogue_state.item_in_focus[Slots.TITLE.value],
                         )
                     )
-                    agent_dacts.append(deepcopy(agent_dact))
-
-            if agent_dact.intent == AgentIntents.UNK:
-                if (
-                    not dialogue_state.agent_req_filled
-                    and user_dact.intent != UserIntents.HI
-                ):
-                    agent_dact.intent = AgentIntents.ELICIT
-                    # random.shuffle(slots)
-                    for slot in slots:
-                        if not dialogue_state.frame_CIN[slot]:
-                            agent_dact.params.append(
-                                ItemConstraint(slot, Operator.EQ, "")
+                agent_dacts.append(deepcopy(agent_dact))
+            elif user_dact.intent == UserIntents.ACCEPT:
+                agent_dacts.append(
+                    DialogueAct(
+                        AgentIntents.CONTINUE_RECOMMENDATION,
+                        [
+                            ItemConstraint(
+                                Slots.TITLE.value,
+                                Operator.EQ,
+                                dialogue_state.item_in_focus[Slots.TITLE.value],
                             )
-                            break
-                elif user_dact.intent == UserIntents.UNK:
-                    agent_dact.intent = AgentIntents.CANT_HELP
-                if agent_dact.intent != AgentIntents.UNK:
-                    agent_dacts.append(deepcopy(agent_dact))
-
-        if len(agent_dacts) == 0:
-            agent_dacts.append(DialogueAct(AgentIntents.CANT_HELP, []))
-        # Adding example:
-        for agent_dact in agent_dacts:
-            if agent_dact.intent == AgentIntents.ELICIT and agent_dact.params[
-                0
-            ].slot not in [Slots.YEAR.value]:
-                if dialogue_state.database_result:
-                    agent_dact.params[0].value = self._generate_examples(
-                        dialogue_state.database_result,
-                        agent_dact.params[0].slot,
+                        ],
                     )
+                )
         return agent_dacts
+
+    def choose_elicit_or_recommend(
+        self, dialogue_state: DialogueState, slots: List[str]
+    ) -> List[DialogueAct]:
+        """Action choosing between the elicit or recommend action.
+
+        Args:
+            dialogue_state: Dialogue state.
+            slots: Slots.
+
+        Returns:
+            List of dialogue acts to either elicit information need or make a
+            recommendation.
+        """
+        return self.elicit(dialogue_state, slots) or self.recommend(
+            dialogue_state, slots
+        )
 
     def _generate_examples(
         self, database_result: List[Dict[str, Any]], slot: str
