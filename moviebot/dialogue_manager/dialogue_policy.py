@@ -109,7 +109,6 @@ class DialoguePolicy:
         # Define possible actions based on dialogue state
         possible_actions_per_state = {
             "agent_req_filled": self.elicit,
-            # "agent_can_lookup": self.recommend,
             "agent_made_partial_offer": self.choose_elicit_or_recommend,
             "agent_should_make_offer": self.recommend,
             "agent_made_offer": self.inform_or_recommend,
