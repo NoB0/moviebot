@@ -64,6 +64,7 @@ class ControllerFlask(Controller):
         """
         (
             self.agent_response[user_id],
+            self.agent_intent,
             self.user_options[user_id],
             self.record_data_agent[user_id],
         ) = self.agent[user_id].start_dialogue(user_id, restart)
@@ -145,6 +146,7 @@ class ControllerFlask(Controller):
         user_utterance = UserUtterance({"text": payload})
         (
             self.agent_response[user_id],
+            self.agent_intent,
             self.user_options[user_id],
             self.record_data_agent[user_id],
         ) = self.agent[user_id].continue_dialogue(
@@ -156,8 +158,8 @@ class ControllerFlask(Controller):
         self.movie_info(movie_id, user_id)
 
     def accept_license(self, user_id: str, b_accept: bool = True) -> Callable:
-        """User accepts license agreement. Data for this user is stored
-        in conversation history.
+        """User accepts license agreement. Data for this user is stored in
+        conversation history.
 
         Args:
             user_id: User id.
@@ -168,8 +170,8 @@ class ControllerFlask(Controller):
         return self.storage_instructions(user_id, b_accept)
 
     def reject_license(self, user_id: str) -> Callable:
-        """User rejects license agreement. Data for this user is not stored
-        in conversation history.
+        """User rejects license agreement. Data for this user is not stored in
+        conversation history.
 
         Args:
             user_id: User id.
