@@ -1,5 +1,7 @@
-"""Semantic annotation is annotation that stores certain insight from text. Some
-text can have many such annotations."""
+"""Semantic annotation is annotation that stores certain insight from text.
+
+Some text can have many such annotations.
+"""
 
 from enum import Enum
 from typing import Optional
@@ -8,7 +10,7 @@ from moviebot.nlu.text_processing import Span
 
 
 class AnnotationType(Enum):
-    """Types of annotations"""
+    """Types of annotations."""
 
     NAMED_ENTITY = 0
     TEMPORAL = 1
@@ -16,8 +18,10 @@ class AnnotationType(Enum):
 
 
 class EntityType(Enum):
-    """Types of entities. These are subcategories for NAMED_ENTITY annotation
-    type."""
+    """Types of entities.
+
+    These are subcategories for NAMED_ENTITY annotation type.
+    """
 
     TITLE = 0
     GENRES = 1
@@ -68,8 +72,8 @@ class SemanticAnnotation(Span):
         annotation_type: AnnotationType,
         entity_type: Optional[EntityType] = None,
     ) -> "SemanticAnnotation":
-        """Creates semantic annotation from already existing span or token. This
-        is the most common way to create new annotation.
+        """Creates semantic annotation from already existing span or token.
+        This is the most common way to create new annotation.
 
         Args:
             span: Span with text, start and end.

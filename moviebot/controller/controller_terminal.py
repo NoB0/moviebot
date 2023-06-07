@@ -1,6 +1,5 @@
 """This file contains the Controller class which controls the flow of the
-conversation while the user interacts with the agent using python console.
-"""
+conversation while the user interacts with the agent using python console."""
 
 import questionary
 from questionary.constants import INDICATOR_SELECTED
@@ -10,8 +9,11 @@ from moviebot.core.utterance.utterance import UserUtterance
 
 
 class ControllerTerminal(Controller):
-    """This is the main class that controls the other components of the
-    IAI MovieBot. The controller executes the conversational agent."""
+    """This is the main class that controls the other components of the IAI
+    MovieBot.
+
+    The controller executes the conversational agent.
+    """
 
     def execute_agent(self) -> None:
         """Runs the conversational agent and executes the dialogue."""

@@ -1,6 +1,9 @@
 """This file contains the list of possible intents for agent/system as
-constants. This approach will help the Dialogue Policy to decide the intents
-from a pre-defined set."""
+constants.
+
+This approach will help the Dialogue Policy to decide the intents from a
+pre-defined set.
+"""
 
 
 from enum import Enum
@@ -8,8 +11,11 @@ from enum import Enum
 
 class AgentIntents(Enum):
     """This class contains the list of possible intents for agent/system as
-    constants. This approach will help the Dialogue Policy to decide the intents
-    from a pre-defined set."""
+    constants.
+
+    This approach will help the Dialogue Policy to decide the intents
+    from a pre-defined set.
+    """
 
     ELICIT = "elicit"
 

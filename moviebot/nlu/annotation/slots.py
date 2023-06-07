@@ -1,13 +1,17 @@
 """This file contains the list of slots available in the database.
-This approach will help the NLU to correctly identify slots"""
+
+This approach will help the NLU to correctly identify slots
+"""
 
 
 from enum import Enum
 
 
 class Slots(Enum):
-    """This class contains the list of slots available in the database. This
-    approach will help the NLU to correctly identify slots"""
+    """This class contains the list of slots available in the database.
+
+    This approach will help the NLU to correctly identify slots
+    """
 
     ID = "ID"
     TITLE = "title"

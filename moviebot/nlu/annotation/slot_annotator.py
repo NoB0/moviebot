@@ -16,8 +16,8 @@ class SlotAnnotator(abc.ABC):
     def slot_annotation(
         self, slot: Slots, utterance: UserUtterance
     ) -> List[ItemConstraint]:
-        """Given utterance and a slot return a list of triplets of
-        (slot, operator, value).
+        """Given utterance and a slot return a list of triplets of (slot,
+        operator, value).
 
         IMPORTANT: This will be changed to return semantic annotations instead!
 

@@ -34,7 +34,8 @@ class DataBase:
         self.backup_db_results = None
 
     def _initialize_sql(self) -> None:
-        """Initializes the SQL connection and the name of the table to query."""
+        """Initializes the SQL connection and the name of the table to
+        query."""
         self.sql_connection = sqlite3.connect(self.db_file_path)
         self.db_table_name = self._get_table_name()
 

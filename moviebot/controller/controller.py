@@ -18,8 +18,8 @@ logger = logging.getLogger(__name__)
 
 class Controller(ABC):
     def __init__(self, configuration: Dict[str, Any]):
-        """This is the main class that controls the other components of the
-        IAI MovieBot. The controller executes the conversational agent.
+        """This is the main class that controls the other components of the IAI
+        MovieBot. The controller executes the conversational agent.
 
         Args:
             configuration: the settings for the agent

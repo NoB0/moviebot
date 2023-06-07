@@ -1,4 +1,5 @@
 """The Operator class defines acceptable operators.
+
 It will be used to identify dialogue act item operator
 """
 
@@ -8,7 +9,9 @@ from enum import Enum
 
 class Operator(Enum):
     """The Operator class defines acceptable operators.
-    It will be used to identify dialogue act item operator"""
+
+    It will be used to identify dialogue act item operator
+    """
 
     EQ = 1
     NE = 2

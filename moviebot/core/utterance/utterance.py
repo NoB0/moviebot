@@ -64,9 +64,8 @@ class Utterance(ABC):
 
 
 class UserUtterance(Utterance):
-    """Expands the base class with preprocessed and tokenized version of
-    the utterance.
-    """
+    """Expands the base class with preprocessed and tokenized version of the
+    utterance."""
 
     def get_tokens(self) -> List[Token]:
         """Preprocesses the utterance and returns a list of tokens.

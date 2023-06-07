@@ -192,8 +192,9 @@ def annotate_slot_utterance(annotator, slot, utterance):
 
 
 def remove_non_seriasable(d):
-    """Converts AnnotationType and EntityType classes to strings. This is
-    needed when saving to a file.
+    """Converts AnnotationType and EntityType classes to strings.
+
+    This is needed when saving to a file.
     """
     return {
         k: str(val.name).lower()
