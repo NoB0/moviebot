@@ -163,13 +163,19 @@ class Agent:
             agent_dacts = self.dialogue_manager.start_dialogue(self.new_user)
         else:
             agent_dacts = self.dialogue_manager.generate_output(restart)
-        agent_intents = ",".join([dact.intent.name for dact in agent_dacts])
+        agent_intents = "+".join([dact.intent.name for dact in agent_dacts])
         agent_response, options = self.nlg.generate_output(
             agent_dacts, user_fname=user_fname
         )
         self.dialogue_manager.get_context().add_utterance(
             AgentUtterance({"text": agent_response})
         )
+
+        if self.record:
+            self.recorder.record(
+                user_fname, agent_response, agent_dacts, participant="AGENT"
+            )
+
         if not self.isBot:
             logger.debug(
                 str(self.dialogue_manager.dialogue_state_tracker.dialogue_state)
@@ -220,13 +226,28 @@ class Agent:
             self.dialogue_manager.dialogue_state_tracker.dialogue_state
         )
 
-        agent_intents = ",".join([dact.intent.name for dact in agent_dacts])
+        agent_intents = "+".join([dact.intent.name for dact in agent_dacts])
         agent_response, options = self.nlg.generate_output(
             agent_dacts, dialogue_state=dialogue_state, user_fname=user_fname
         )
         self.dialogue_manager.get_context().add_utterance(
             AgentUtterance({"text": agent_response})
         )
+
+        if self.record:
+            self.recorder.record(
+                user_fname,
+                user_utterance.get_text(),
+                user_dacts,
+                participant="USER",
+            )
+            self.recorder.record(
+                user_fname,
+                agent_response,
+                agent_dacts,
+                participant="AGENT",
+            )
+
         if not self.isBot:
             logger.debug(
                 str(self.dialogue_manager.dialogue_state_tracker.dialogue_state)
@@ -254,8 +275,8 @@ class Agent:
 
     def end_dialogue(self) -> None:
         """Ends the dialogue and save the experience if required."""
-        # TODO: Save the experience
-        pass
+        if self.record:
+            self.recorder.save()
 
     def terminated_dialogue(self) -> bool:
         """Checks if the dialogue is terminated by either user or the number of
